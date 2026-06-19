@@ -1,0 +1,3 @@
+const CONVERSATION_HISTORY_LIMIT = 10;
+
+module.exports = { CONVERSATION_HISTORY_LIMIT };
