@@ -1,4 +1,3 @@
-const { response } = require("express");
 const ai = require("../libs/googleGenAi");
 const supabaseAdmin = require("../libs/supabaseAdmin");
 const AiService = require("../services/aiService");
@@ -80,17 +79,28 @@ chatbotRouter.post("/chat", async (req, res) => {
 
   // 6. Interpret action response
   while (retry) {
-    const res = await conversationService.interpretAction(
+    const interpretResult = await conversationService.interpretAction(
       response,
       filtered_response,
       activeChatId,
     );
 
-    if (res.error_message) {
-      console.log("INTERPRETATION ERROR: " + JSON.stringify(res, null, 2));
+    if (interpretResult.error_message) {
+      console.log(
+        "INTERPRETATION ERROR: " + JSON.stringify(interpretResult, null, 2),
+      );
+
+      retry_counter++;
+      if (retry_counter > 3) {
+        response.message =
+          "Something went wrong after multiple retries. Please try again.";
+        retry = false;
+        break;
+      }
+
       response = await aiServive.sendMessage(message, history, context, {
-        error: res.error_message,
-        success: res.success_message,
+        error: interpretResult.error_message,
+        success: interpretResult.success_message,
       });
 
       continue;
@@ -107,7 +117,7 @@ chatbotRouter.post("/chat", async (req, res) => {
     activeChatId,
   );
 
-  if (msgError) return res.status(500).json({ error: msgError.message });
+  if (aiMsgError) return res.status(500).json({ error: aiMsgError.message });
 
   res.status(200).json({
     chatId: activeChatId,
