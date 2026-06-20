@@ -8,6 +8,7 @@ const {
   structuredReturn,
 } = require("../tools/aiTools");
 const { toolManager } = require("../utils/actionUtils/callToolUtil");
+const { show_candidates } = require("../utils/actionUtils/actionUtil");
 
 class ConversationService {
   initiateConversation = async (userId) => {
@@ -246,11 +247,12 @@ class ConversationService {
           case "ASK_QUESTION":
             filtered_response.ask_question = true;
             break;
-          case "SHOW_CANDIDATES":
-            filtered_response.show_candidate = true;
-            break;
           case "GET_CUSTOMER_LOCATION":
             filtered_response.get_location = true;
+            break;
+          case "SHOW_CANDIDATES":
+            filtered_response.show_candidate = true;
+            await show_candidates(activeChatId, filtered_response);
             break;
           case "CALL_TOOL": // TOOL CALL
             console.log("CALLING TOOL");

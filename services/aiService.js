@@ -25,7 +25,7 @@ class AiService {
       },
     });
 
-    console.log(JSON.parse(response.text, null, 2));
+    // console.log(JSON.parse(response.text, null, 2));
 
     return JSON.parse(response.text);
   };

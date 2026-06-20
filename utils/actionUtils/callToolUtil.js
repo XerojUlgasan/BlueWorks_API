@@ -51,4 +51,18 @@ const updateContextTool = async (args, chatId) => {
   return res.error ? res.error.message : "";
 };
 
+const send_job_requests = async () => {
+  // {                                    SAMPLE
+  //   "name": "send_job_requests",
+  //   "arguments": {
+  //     "job_category": "Electrical",
+  //     "job_type": "Circuit Breaker Repair",
+  //     "description": "Circuit breaker keeps tripping after adding wiring for outlets, lights, and sound systems. Reports a burning smell.",
+  //     "client_budget": 1000,
+  //     "urgency": "Today",
+  //     "client_location": "0101000020E6100000700B96EA02475E400ADB4FC6F8682D40"
+  //   }
+  // }
+};
+
 module.exports = { toolManager };

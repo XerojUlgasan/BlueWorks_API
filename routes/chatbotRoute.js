@@ -76,7 +76,7 @@ chatbotRouter.post("/chat", async (req, res) => {
   // 5. Send message to AI and get response
   var response = await aiServive.sendMessage(message, history, context, extras);
 
-  console.log("RESPONSE : " + JSON.stringify(response, null, 2));
+  console.log(JSON.stringify(response, null, 2));
 
   // 6. Interpret action response
   while (retry) {
@@ -86,9 +86,8 @@ chatbotRouter.post("/chat", async (req, res) => {
       activeChatId,
     );
 
-    console.log("INTERPRETATION ERROR: " + JSON.stringify(res, null, 2));
-
     if (res.error_message) {
+      console.log("INTERPRETATION ERROR: " + JSON.stringify(res, null, 2));
       response = await aiServive.sendMessage(message, history, context, {
         error: res.error_message,
         success: res.success_message,
@@ -122,3 +121,6 @@ chatbotRouter.post("/chat", async (req, res) => {
 });
 
 module.exports = chatbotRouter;
+
+// SEVERITY
+// HOURLY RATE / OVER ALL JOB RATE

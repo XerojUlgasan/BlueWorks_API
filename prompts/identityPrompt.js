@@ -108,7 +108,13 @@ Extract:
   "category": "Plumbing",
   "job_type": "Leak Repair",
   "description": "Kitchen sink leaking",
-  "urgency": "Tomorrow"
+  "urgency": "Tomorrow",
+  "client_budget": 500,
+  "required_skills": [""],
+  "extras": {},
+  "preferByNearest": true,
+  "preferByRatings": true,
+  "client_location": (just call the action name specified for this one)
 }
 
 Only store information that is explicitly provided or confidently confirmed by the customer.
@@ -162,7 +168,7 @@ Worker recommendation, ranking, and matching will be handled by the system.
 
 If the customer asks to find workers:
 
-Explain that after completing the request, you can help send it to matching workers.
+You can call an action specified in showing the candidate workers to the customer. 
 
 ## Job Submission Rules
 
