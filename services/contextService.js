@@ -64,7 +64,6 @@ class ContextService {
     if (job_type != null) updates.job_type = job_type;
     if (job_category != null) updates.job_category = job_category;
     if (required_skills != null) updates.required_skills = required_skills;
-    if (client_location != null) updates.client_location = client_location;
     if (client_budget != null) updates.client_budget = client_budget;
     if (urgency != null) updates.urgency = urgency;
     if (candidate_limit != null) updates.candidate_limit = candidate_limit;
@@ -79,6 +78,22 @@ class ContextService {
       .upsert(updates, { onConflict: "id" })
       .select()
       .single();
+
+    if (error) return { data: null, error };
+
+    if (client_location != null) {
+      const { latitude, longitude, preferred_radius } = client_location;
+      const { error: rpcError } = await supabaseAdmin.rpc(
+        "update_client_location",
+        {
+          p_id: chatId,
+          p_lat: latitude,
+          p_lng: longitude,
+          p_search_radius: preferred_radius * 1000,
+        },
+      );
+      if (rpcError) return { data: null, error: rpcError };
+    }
 
     return { data, error };
   };

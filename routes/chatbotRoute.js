@@ -5,6 +5,7 @@ const AiService = require("../services/aiService");
 const ConversationService = require("../services/conversationService");
 const ContextService = require("../services/contextService");
 const { toolManager } = require("../utils/actionUtils/callToolUtil");
+const { actions, toolNames } = require("../tools/aiTools");
 
 const chatbotRouter = require("express").Router();
 
@@ -13,11 +14,16 @@ const conversationService = new ConversationService();
 const contextService = new ContextService();
 
 chatbotRouter.post("/chat", async (req, res) => {
-  const { message, chatId } = req.body;
+  const { message, chatId, location } = req.body;
 
   let activeChatId = chatId;
   let error_message = "";
   let retry_counter = 0;
+  let retry = true;
+  let location_recorded = false;
+  let extras = "";
+
+  let filtered_response = {};
 
   // 1. Check if chatId is provided, if not create a new conversation
   if (!activeChatId) {
@@ -37,6 +43,30 @@ chatbotRouter.post("/chat", async (req, res) => {
   );
   if (msgError) return res.status(500).json({ error: msgError.message });
 
+  if (location) {
+    console.log(`UPDATING CLIENT LOCATION`);
+
+    const { error: locationError } = await contextService.updateContext(
+      {
+        client_location: location,
+      },
+      activeChatId,
+    );
+
+    if (locationError) {
+      return res.status(200).json({
+        chatId: activeChatId,
+        response: {
+          message: `Error sending location: ${locationError.message}`,
+        },
+      });
+    }
+
+    location_recorded = true;
+    extras +=
+      "location successfully recorded already together with the customer's preferred search radius for workers.\n";
+  }
+
   // 3. retrieve conversation history
   const history = await conversationService.getChatHistory(activeChatId);
 
@@ -44,47 +74,33 @@ chatbotRouter.post("/chat", async (req, res) => {
   const { data: context } = await contextService.retrieveContext(activeChatId);
 
   // 5. Send message to AI and get response
-  var response = await aiServive.sendMessage(message, history, context, null);
-  console.log(JSON.stringify(response, null, 2));
+  var response = await aiServive.sendMessage(message, history, context, extras);
 
-  // 6. Interpret response
-  if (response.action && Array.isArray(response.action)) {
-    response.action.forEach(async (action) => {
-      switch (action) {
-        case "ASK_QUESTION": //////////////////////////
-          console.log("ASKING QUESTION");
-          break;
-        case "CALL_TOOL": //////////////////////////
-          console.log("CALLING TOOL");
-          await toolManager(response.tool, response, activeChatId);
-          break;
-        case "COMPLETE": //////////////////////////
-          console.log("COMPLETED");
-          break;
-        default:
-          retry_counter++;
-          error_message += `\n INVALID ACTION NAME, RETRY COUNT : ${retry_counter}`;
+  console.log("RESPONSE : " + JSON.stringify(response, null, 2));
 
-          if (retry_counter > 3) {
-            response.message = "INVALID TOOL NAME, RETRIED 3 TIMES ALREADY.";
-          }
+  // 6. Interpret action response
+  while (retry) {
+    const res = await conversationService.interpretAction(
+      response,
+      filtered_response,
+      activeChatId,
+    );
 
-          response = await aiServive.sendMessage(
-            message,
-            history,
-            context,
-            error_message,
-          );
-          break;
-      }
-    });
-  } else {
-    // retry logic if response.action does not exist
+    console.log("INTERPRETATION ERROR: " + JSON.stringify(res, null, 2));
+
+    if (res.error_message) {
+      response = await aiServive.sendMessage(message, history, context, {
+        error: res.error_message,
+        success: res.success_message,
+      });
+
+      continue;
+    }
+
+    retry = false;
   }
 
-  // 7. Decide action
-
-  // 8. Record AI response to chatbot_messages
+  // 7. Record AI response to chatbot_messages
   const { error: aiMsgError } = await conversationService.recordMessage(
     req.userId,
     null,
@@ -96,8 +112,12 @@ chatbotRouter.post("/chat", async (req, res) => {
 
   res.status(200).json({
     chatId: activeChatId,
-    // response: { action: response.action, message: response.message }, // FOR PROUCTION
-    response: response, // FOR TESTING
+    response: {
+      action: response.action,
+      message: response.message,
+      ...filtered_response,
+    }, // FOR PROUCTION
+    // response: response, // FOR TESTING
   });
 });
 

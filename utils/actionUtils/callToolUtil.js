@@ -1,27 +1,41 @@
 const ContextService = require("../../services/contextService");
+const { toolNames } = require("../../tools/aiTools");
 
 const toolManager = async (tool_arr, response, chatId) => {
-  if (tool_arr && Array.isArray(tool_arr)) {
-    tool_arr.forEach(async (tool) => {
+  let error_messages = "";
+  let success_messages = "";
+  let res = "";
+
+  if (tool_arr) {
+    if (!Array.isArray(tool_arr)) {
+      error_messages += `TOOL IS NOT AN ARRAY`;
+      return;
+    }
+
+    for (const tool of tool_arr) {
       switch (tool.name) {
-        case "show_candidates":
-          break;
         case "update_context":
-          await updateContextTool(tool.arguments, chatId);
+          res = await updateContextTool(tool.arguments, chatId);
           break;
         case "send_job_requests":
           break;
-        case "get_customer_location":
-          break;
         default:
           console.log("INVALID TOOL NAME: " + tool.name);
+          error_messages += `INVALID TOOL NAME: ${tool.name}  AVAILABLE TOOL NAMES: ${JSON.stringify(toolNames, null, 2)}\n`;
           break;
       }
-    });
-  } else {
+
+      if (res) {
+        error_messages += `TOOL ERROR: ${res} \n`;
+        res = null; // reset
+      } else {
+        success_messages += `TOOL: ${tool.name} ARGS: ${JSON.stringify(tool.arguments)} WAS EXECUTED SUCCESSFULLY, DON'T REPEAT THIS AGAIN WHEN ERROR OCCURED\n`;
+      }
+    }
   }
-  response.test = "check lang po";
-  return;
+
+  console.log("TOOL MANAGER ERROR : " + error_messages);
+  return { error_message: error_messages, success_message: success_messages };
 };
 
 const updateContextTool = async (args, chatId) => {
@@ -29,9 +43,12 @@ const updateContextTool = async (args, chatId) => {
 
   const contextService = new ContextService();
 
-  const { data, error } = await contextService.updateContext(args, chatId);
+  const res = await contextService.updateContext(args, chatId);
 
-  if (error) console.log("ERROR ENCOUNTERED: " + error.message);
+  if (res.error) {
+    console.log("CONTEXT TOOL ERROR : " + res.error.message);
+  }
+  return res.error ? res.error.message : "";
 };
 
 module.exports = { toolManager };

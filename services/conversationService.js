@@ -1,3 +1,4 @@
+const { json } = require("express");
 const { CONVERSATION_HISTORY_LIMIT } = require("../config/conversationConfig");
 const supabaseAdmin = require("../libs/supabaseAdmin");
 const {
@@ -6,6 +7,7 @@ const {
   toolExplanation,
   structuredReturn,
 } = require("../tools/aiTools");
+const { toolManager } = require("../utils/actionUtils/callToolUtil");
 
 class ConversationService {
   initiateConversation = async (userId) => {
@@ -39,17 +41,36 @@ class ConversationService {
   };
 
   getChatHistory = async (chatId) => {
-    const result = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("chatbot_messages")
       .select("user_message, chatbot_message")
       .eq("conversation_id", chatId)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: true })
       .limit(CONVERSATION_HISTORY_LIMIT);
 
-    return result.data.map((d) => [
-      { role: "user", parts: d.user_message },
-      { role: "model", parts: d.chatbot_message },
-    ]);
+    if (error) {
+      throw error;
+    }
+
+    return data.flatMap((d) => {
+      const messages = [];
+
+      if (d.user_message) {
+        messages.push({
+          role: "user",
+          parts: d.user_message,
+        });
+      }
+
+      if (d.chatbot_message) {
+        messages.push({
+          role: "model",
+          parts: d.chatbot_message,
+        });
+      }
+
+      return messages;
+    });
   };
 
   restructurePrompt = (message, history, context, extras) => {
@@ -90,7 +111,7 @@ class ConversationService {
         Customer's proposed budget.
 
       - urgency
-        Examples:
+        STRICTLY ONLY:
         Today
         Tomorrow
         This Week
@@ -122,7 +143,9 @@ class ConversationService {
 
       ${JSON.stringify(actions, null, 2)}
 
-      You may return MULTIPLE actions.
+      You may return MULTIPLE actions. 
+
+      NOTE: always identify actions you want, for example, if you want to ask questions, add a ASK_QUESTION action. if you want to get the user location, use the respective action. that is applicable on all actions, okay? always check the actions.
 
       Example:
 
@@ -135,6 +158,8 @@ class ConversationService {
       ==================================================
       AVAILABLE TOOLS
       ==================================================
+
+      tool names will only be called when you have called the action "CALL_TOOL". always double check if you called the action "CALL_TOOL" if you are going to put a tool to use. otherwise, it won't run.
 
       ${JSON.stringify(toolNames, null, 2)}
 
@@ -194,9 +219,66 @@ class ConversationService {
       EXTRA DETAILS
       ==================================================
 
-      ${extras}
+      ${JSON.stringify(extras, null, 2)}
 
       `;
+  };
+
+  interpretAction = async (response, filtered_response, activeChatId) => {
+    let ret = {
+      error_message: "",
+      success_message: "",
+    };
+
+    let res = {
+      error_message: "",
+      success_message: "",
+    };
+
+    if (response.action) {
+      if (!Array.isArray(response.action)) {
+        ret.error_message += `\n ACTION MUST BE AN ARRAY`;
+        return;
+      }
+
+      for (const action of response.action) {
+        switch (action) {
+          case "ASK_QUESTION":
+            filtered_response.ask_question = true;
+            break;
+          case "SHOW_CANDIDATES":
+            filtered_response.show_candidate = true;
+            break;
+          case "GET_CUSTOMER_LOCATION":
+            filtered_response.get_location = true;
+            break;
+          case "CALL_TOOL": // TOOL CALL
+            console.log("CALLING TOOL");
+            res = await toolManager(response.tool, response, activeChatId);
+            break;
+          case "COMPLETE":
+            console.log("COMPLETED");
+            break;
+          default:
+            ret.error_message += `\n INVALID ACTION NAME: ${action}. AVAILABLE ACTION NAMES: ${JSON.stringify(actions, null, 2)}.`;
+            break;
+        }
+
+        if (res.error_message) {
+          console.log("RES : " + JSON.stringify(res));
+          ret.error_message += `\n ${res.error_message}`;
+          ret.success_message += `\n ${res.success_message}`;
+
+          //RESET
+          res = {
+            error_message: "",
+            success_message: "",
+          };
+        }
+      }
+    }
+    console.log("CONVERSATION SERVICE ERROR: " + JSON.stringify(ret));
+    return ret;
   };
 }
 
