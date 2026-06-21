@@ -45,11 +45,22 @@ const actions = [
   "COMPLETE",
 ];
 
-const toolNames = ["update_context", "send_job_requests"];
+const toolNames = [
+  "update_context",
+  "create_and_send_job_requests",
+  "create_job_request",
+  "update_job_request",
+  "delete_job_request",
+  "send_job_request",
+];
 
 const toolExplanation = {
   update_context: `updates the context table. only put a value on the column that you want to change.`,
-  send_job_requests: `sends the job requests to the workers. requires the context table columns are required to be filled in the context table.`,
+  create_and_send_job_requests: `creates and sends the job requests to the workers. requires the context table columns are required to be filled in the context table. STRICTLY only call this if job_id is null in context.`,
+  create_job_request: `Creates only a job request`,
+  update_job_request: `Updates a job request`,
+  delete_job_request: `Deletes a job request`,
+  send_job_request: `sends the job request to the candidates. requires job_id in context, otherwise, suggest create and send or create only.`,
 };
 
 module.exports = {

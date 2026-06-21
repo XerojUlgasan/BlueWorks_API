@@ -1,14 +1,13 @@
 const supabaseAdmin = require("../libs/supabaseAdmin");
 
 class ContextService {
-  retrieveContext = (chatId) => {
-    return supabaseAdmin
-      .from("conversation_context")
-      .select("*")
-      .eq("id", chatId);
+  retrieveContext = async (chatId) => {
+    return await supabaseAdmin.rpc("get_conversation_context", {
+      context_id: chatId,
+    });
   };
 
-  updateContext = async (context_updates, chatId) => {
+  updateContext = async (context_updates, chatId, userId) => {
     const {
       extras,
       job_type,
@@ -72,6 +71,7 @@ class ContextService {
     if (missing_fields != null) updates.missing_fields = missing_fields;
     if (preferByNearest != null) updates.preferByNearest = preferByNearest;
     if (preferByRatings != null) updates.preferByRating = preferByRatings;
+    if (userId != null) updates.user_id = userId;
 
     const { data, error } = await supabaseAdmin
       .from("conversation_context")
@@ -96,6 +96,20 @@ class ContextService {
     }
 
     return { data, error };
+  };
+
+  bindJobIdToContext = async (chatId, jobId) => {
+    if (!chatId || !jobId) {
+      return {
+        data: null,
+        error: { message: "chatId and jobId are required" },
+      };
+    }
+
+    return await supabaseAdmin
+      .from("conversation_context")
+      .update({ job_id: jobId })
+      .eq("id", chatId);
   };
 }
 

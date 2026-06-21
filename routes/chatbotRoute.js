@@ -72,6 +72,8 @@ chatbotRouter.post("/chat", async (req, res) => {
   // 4. retrieve chatContext
   const { data: context } = await contextService.retrieveContext(activeChatId);
 
+  console.log(JSON.stringify(context, null, 2));
+
   // 5. Send message to AI and get response
   var response = await aiServive.sendMessage(message, history, context, extras);
 
@@ -83,6 +85,8 @@ chatbotRouter.post("/chat", async (req, res) => {
       response,
       filtered_response,
       activeChatId,
+      context,
+      req.userId,
     );
 
     if (interpretResult.error_message) {
@@ -119,7 +123,7 @@ chatbotRouter.post("/chat", async (req, res) => {
 
   if (aiMsgError) return res.status(500).json({ error: aiMsgError.message });
 
-  res.status(200).json({
+  return res.status(200).json({
     chatId: activeChatId,
     response: {
       action: response.action,

@@ -1,7 +1,10 @@
 const ContextService = require("../../services/contextService");
+const JobService = require("../../services/jobService");
 const { toolNames } = require("../../tools/aiTools");
 
-const toolManager = async (tool_arr, response, chatId) => {
+const toolManager = async (tool_arr, response, chatId, context, userId) => {
+  const jobService = new JobService();
+
   let error_messages = "";
   let success_messages = "";
   let res = "";
@@ -15,9 +18,24 @@ const toolManager = async (tool_arr, response, chatId) => {
     for (const tool of tool_arr) {
       switch (tool.name) {
         case "update_context":
-          res = await updateContextTool(tool.arguments, chatId);
+          res = await updateContextTool(tool.arguments, chatId, userId);
           break;
-        case "send_job_requests":
+        case "create_and_send_job_requests":
+          rest = await jobService.createAndSendJobRequest(
+            tool.arguments,
+            context,
+            userId,
+            chatId,
+          );
+          break;
+        case "create_job_request":
+          //   res = await createJobRequestTool(tool.arguments);
+          break;
+        case "update_job_request":
+          break;
+        case "delete_job_request":
+          break;
+        case "send_job_request":
           break;
         default:
           console.log("INVALID TOOL NAME: " + tool.name);
@@ -29,7 +47,7 @@ const toolManager = async (tool_arr, response, chatId) => {
         error_messages += `TOOL ERROR: ${res} \n`;
         res = null; // reset
       } else {
-        success_messages += `TOOL: ${tool.name} ARGS: ${JSON.stringify(tool.arguments)} WAS EXECUTED SUCCESSFULLY, DON'T REPEAT THIS AGAIN WHEN ERROR OCCURED\n`;
+        success_messages += `TOOL: ${tool.name} ARGS: ${JSON.stringify(tool.arguments)} WAS EXECUTED SUCCESSFULLY, DON'T REPEAT THIS AGAIN WHEN ANOTHER ERROR OCCURED, UNLESS NEEDED\n`;
       }
     }
   }
@@ -38,12 +56,12 @@ const toolManager = async (tool_arr, response, chatId) => {
   return { error_message: error_messages, success_message: success_messages };
 };
 
-const updateContextTool = async (args, chatId) => {
+const updateContextTool = async (args, chatId, userId) => {
   console.log("UPDATING CONTEXT");
 
   const contextService = new ContextService();
 
-  const res = await contextService.updateContext(args, chatId);
+  const res = await contextService.updateContext(args, chatId, userId);
 
   if (res.error) {
     console.log("CONTEXT TOOL ERROR : " + res.error.message);

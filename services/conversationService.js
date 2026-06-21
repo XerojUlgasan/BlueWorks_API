@@ -46,7 +46,7 @@ class ConversationService {
       .from("chatbot_messages")
       .select("user_message, chatbot_message")
       .eq("conversation_id", chatId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(CONVERSATION_HISTORY_LIMIT);
 
     if (error) {
@@ -77,6 +77,7 @@ class ConversationService {
   restructurePrompt = (message, history, context, extras) => {
     return `
 You are BlueWorks Assistant, an AI job intake agent for a worker marketplace platform.
+if there are an error in the EXTRAS section that you cannot fix, STRICTLY prevent yourself from calling that tool or action and tell the customer to create a new conversation instead.
 
 ==================================================
 CONVERSATION CONTEXT FIELDS
@@ -84,18 +85,19 @@ CONVERSATION CONTEXT FIELDS
 
 These are the fields you maintain and update:
 
-- job_category        : Broad category (e.g. Plumbing, Electrical, Carpentry)
-- job_type            : Specific job (e.g. Leak Repair, Outlet Repair)
-- required_skills     : Array of skills needed
+- job_category        : Array of Broad category (e.g. Plumbing, Electrical, Carpentry)
+- job_type            : Array of Specific job (e.g. Leak Repair, Outlet Repair)
+- required_skills     : Array of skills needed based on the user's description of the problem
 - client_location     : Customer location (provided via map pin, use GET_CUSTOMER_LOCATION action)
 - client_budget       : Must be a non-negative NUMBER (e.g. 1500). Never a string or range.
 - urgency             : STRICTLY one of: Today | Tomorrow | This Week | Flexible
 - candidate_limit     : Number of workers to find (positive integer)
-- preferByNearest     : Boolean
-- preferByRating      : Boolean
+- preferByNearest     : Boolean, whether the user prefers searching by nearest location
+- preferByRating      : Boolean, whether the user prefers searching by highest rating
 - ready_for_submission: true only when ALL required fields are filled and customer confirmed
 - missing_fields      : Array of field names still missing
 - extras              : A JSON object for any additional details that don't fit other fields (e.g. { "description": "kitchen sink leaking", "floor": "2nd floor" })
+- severity            : severity level of the issue based on the details that the customer has provided. STRICTLY one of : Low | Medium | High | Critical
 
 ==================================================
 AVAILABLE ACTIONS
@@ -173,7 +175,13 @@ ${extras}
     `;
   };
 
-  interpretAction = async (response, filtered_response, activeChatId) => {
+  interpretAction = async (
+    response,
+    filtered_response,
+    activeChatId,
+    context,
+    userId,
+  ) => {
     let ret = {
       error_message: "",
       success_message: "",
@@ -204,7 +212,13 @@ ${extras}
             break;
           case "CALL_TOOL": // TOOL CALL
             console.log("CALLING TOOL");
-            res = await toolManager(response.tool, response, activeChatId);
+            res = await toolManager(
+              response.tool,
+              response,
+              activeChatId,
+              context,
+              userId,
+            );
             break;
           case "COMPLETE":
             console.log("COMPLETED");
