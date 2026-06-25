@@ -2,9 +2,12 @@ const supabaseAdmin = require("../libs/supabaseAdmin");
 
 class ContextService {
   retrieveContext = async (chatId) => {
-    return await supabaseAdmin.rpc("get_conversation_context", {
-      context_id: chatId,
-    });
+    return await supabaseAdmin
+      .rpc("get_conversation_context", {
+        context_id: chatId,
+      })
+      .limit(1)
+      .single();
   };
 
   updateContext = async (context_updates, chatId, userId) => {
@@ -21,6 +24,7 @@ class ContextService {
       missing_fields,
       preferByNearest,
       preferByRatings,
+      job_severity,
     } = context_updates;
 
     console.log(context_updates);
@@ -71,6 +75,7 @@ class ContextService {
     if (missing_fields != null) updates.missing_fields = missing_fields;
     if (preferByNearest != null) updates.preferByNearest = preferByNearest;
     if (preferByRatings != null) updates.preferByRating = preferByRatings;
+    if (job_severity != null) updates.job_severity = job_severity;
     if (userId != null) updates.user_id = userId;
 
     const { data, error } = await supabaseAdmin

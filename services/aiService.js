@@ -1,3 +1,4 @@
+const { ThinkingLevel } = require("@google/genai");
 const ai = require("../libs/googleGenAi");
 const { aiIdentity } = require("../prompts/identityPrompt");
 const ConversationService = require("./conversationService");
@@ -14,7 +15,7 @@ class AiService {
       extras,
     );
 
-    // console.log(content);
+    console.log(content);
 
     const response = await ai.models.generateContent({
       // model: "gemini-2.5-flash",
@@ -22,6 +23,9 @@ class AiService {
       contents: content,
       config: {
         systemInstruction: this.identity,
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.MEDIUM,
+        },
       },
     });
 

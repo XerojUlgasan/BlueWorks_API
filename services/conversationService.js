@@ -94,6 +94,8 @@ These are the fields you maintain and update:
 - candidate_limit     : Number of workers to find (positive integer)
 - preferByNearest     : Boolean, whether the user prefers searching by nearest location
 - preferByRating      : Boolean, whether the user prefers searching by highest rating
+- job_severity        : Severity of the issue. STRICTLY one of: Low | Medium | High | Critical
+- job_id              : UUID of the created job request. Will be set automatically after job creation. Do NOT modify this.
 - ready_for_submission: true only when ALL required fields are filled and customer confirmed
 - missing_fields      : Array of field names still missing
 - extras              : A JSON object for any additional details that don't fit other fields (e.g. { "description": "kitchen sink leaking", "floor": "2nd floor" })
@@ -111,7 +113,11 @@ Rules for actions:
 - If you need the customer's location, include GET_CUSTOMER_LOCATION.
 - If you want to show workers, include SHOW_CANDIDATES.
 - CRITICAL: You MUST include CALL_TOOL in your action array if you want to use any tool. Tools will NOT run without it.
-- You may return multiple actions.
+- CRITICAL: If your response contains anything in the "tool" array, you MUST also have "CALL_TOOL" in the "action" array. Without CALL_TOOL, the tools you listed will be completely ignored and will NOT execute.
+- You may return multiple actions at the same time (e.g. ["CALL_TOOL", "ASK_QUESTION"]).
+- Always check: did I collect new information? If yes, include CALL_TOOL + update_context.
+- Always check: am I asking a question? If yes, include ASK_QUESTION.
+- Always check: does the customer need to pin their location? If yes, include GET_CUSTOMER_LOCATION.
 
 ==================================================
 AVAILABLE TOOLS
@@ -124,17 +130,21 @@ ${JSON.stringify(toolExplanation, null, 2)}
 
 Rules for tools:
 - CRITICAL: Only put a tool in the "tool" array if you have also included "CALL_TOOL" in the "action" array.
+- CRITICAL: If you forget to add "CALL_TOOL" to actions, your tools will be silently ignored and will NOT run. Always double-check.
 - If you did not include CALL_TOOL in actions, the "tool" array must be empty.
 - Only use available tool names listed above.
 - Only include fields in tool arguments that you want to change. Do not repeat unchanged fields.
 - client_budget must always be a NUMBER, never a string or range.
 - extras must always be a JSON object, never a plain string. Store details like description, problem summary, and other notes inside it.
+- job_severity must always be one of: Low | Medium | High | Critical.
+- Never set job_id in tool arguments. It is managed by the system.
 
 ==================================================
 RULES
 ==================================================
 
 - Always return valid JSON. Never return markdown or text outside JSON.
+- CRITICAL: Every time the customer provides new information, you MUST call update_context via CALL_TOOL. Do not wait until submission.
 - Never hallucinate or invent customer information.
 - Never overwrite existing context unless the customer explicitly provides new information.
 - Only populate fields that are explicitly provided or confirmed by the customer.
@@ -152,11 +162,15 @@ ${JSON.stringify(structuredReturn, null, 2)}
 CURRENT CUSTOMER MESSAGE
 ==================================================
 
+ALWAYS READ THIS AND DO NOT DEPEND ON THE HISTORY. USE ONLY HISTORY FOR CONTEXT
+
 ${message}
 
 ==================================================
 CONVERSATION HISTORY
 ==================================================
+
+NOTE: index 0 of the array is the latest message
 
 ${JSON.stringify(history, null, 2)}
 
@@ -170,7 +184,7 @@ ${JSON.stringify(context, null, 2)}
 EXTRA DETAILS
 ==================================================
 
-${extras}
+${JSON.stringify(extras, null, 2)}
 
     `;
   };

@@ -12,30 +12,20 @@ const toolManager = async (tool_arr, response, chatId, context, userId) => {
   if (tool_arr) {
     if (!Array.isArray(tool_arr)) {
       error_messages += `TOOL IS NOT AN ARRAY`;
-      return;
+      return {
+        error_message: error_messages,
+        success_message: success_messages,
+      };
     }
 
     for (const tool of tool_arr) {
+      res = "";
       switch (tool.name) {
         case "update_context":
           res = await updateContextTool(tool.arguments, chatId, userId);
           break;
-        case "create_and_send_job_requests":
-          rest = await jobService.createAndSendJobRequest(
-            tool.arguments,
-            context,
-            userId,
-            chatId,
-          );
-          break;
         case "create_job_request":
-          //   res = await createJobRequestTool(tool.arguments);
-          break;
-        case "update_job_request":
-          break;
-        case "delete_job_request":
-          break;
-        case "send_job_request":
+          res = await createJobRequestTool(context, userId, chatId);
           break;
         default:
           console.log("INVALID TOOL NAME: " + tool.name);
@@ -43,9 +33,12 @@ const toolManager = async (tool_arr, response, chatId, context, userId) => {
           break;
       }
 
-      if (res) {
-        error_messages += `TOOL ERROR: ${res} \n`;
-        res = null; // reset
+      if (res?.error_message) {
+        error_messages += `TOOL ERROR [${tool.name}]: ${res.error_message}\n`;
+      } else if (res?.success_message) {
+        success_messages += res.success_message + "\n";
+      } else if (res?.error) {
+        error_messages += `TOOL ERROR [${tool.name}]: ${res.error.message}\n`;
       } else {
         success_messages += `TOOL: ${tool.name} ARGS: ${JSON.stringify(tool.arguments)} WAS EXECUTED SUCCESSFULLY, DON'T REPEAT THIS AGAIN WHEN ANOTHER ERROR OCCURED, UNLESS NEEDED\n`;
       }
@@ -58,29 +51,38 @@ const toolManager = async (tool_arr, response, chatId, context, userId) => {
 
 const updateContextTool = async (args, chatId, userId) => {
   console.log("UPDATING CONTEXT");
-
   const contextService = new ContextService();
-
   const res = await contextService.updateContext(args, chatId, userId);
-
-  if (res.error) {
-    console.log("CONTEXT TOOL ERROR : " + res.error.message);
-  }
-  return res.error ? res.error.message : "";
+  if (res.error) console.log("CONTEXT TOOL ERROR : " + res.error.message);
+  return res.error
+    ? { error_message: res.error.message, success_message: "" }
+    : { error_message: "", success_message: "Context updated successfully." };
 };
 
-const send_job_requests = async () => {
-  // {                                    SAMPLE
-  //   "name": "send_job_requests",
-  //   "arguments": {
-  //     "job_category": "Electrical",
-  //     "job_type": "Circuit Breaker Repair",
-  //     "description": "Circuit breaker keeps tripping after adding wiring for outlets, lights, and sound systems. Reports a burning smell.",
-  //     "client_budget": 1000,
-  //     "urgency": "Today",
-  //     "client_location": "0101000020E6100000700B96EA02475E400ADB4FC6F8682D40"
-  //   }
-  // }
+const createJobRequestTool = async (context, client_id, chatId) => {
+  console.log("CREATING JOB REQUEST");
+  const jobService = new JobService();
+  const contextService = new ContextService();
+
+  if (context.job_id) {
+    console.log("JOB REQUEST ALREADY CREATED!!! ");
+    return {
+      error_message: `Job request already exists with ID: ${context.job_id}.`,
+      success_message: "",
+    };
+  }
+
+  const { data, error } = await jobService.createJobRequest(context, client_id);
+  if (error)
+    return {
+      error_message: `ERROR CREATING JOB REQUEST: ${error.message}`,
+      success_message: "",
+    };
+  await contextService.bindJobIdToContext(chatId, data.id);
+  return {
+    error_message: "",
+    success_message: `Job request created with ID: ${data.id}.`,
+  };
 };
 
 module.exports = { toolManager };
